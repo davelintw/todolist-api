@@ -130,6 +130,6 @@ const requestListener = (req, res) => {
 };
 
 const server = http.createServer(requestListener);
-server.listen(3636, () => {
+server.listen(process.env.PORT || 3636, () => {
     console.log('Server running at http://localhost:3636/');
 });
