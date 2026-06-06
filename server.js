@@ -2,9 +2,8 @@ const version = process.version;
 console.log(`🚀 Running Node.js ${version}`);
 
 const http = require('http');
-const { v4: uuidv4 } = require('uuid');
+const logicHandle = require('./logicHandle');
 const errorHandle = require('./errorHandle');
-const todos = [];
 
 const requestListener = (req, res) => {
     console.log('--');
@@ -27,13 +26,13 @@ const requestListener = (req, res) => {
         res.writeHead(200, headers);
         res.write(JSON.stringify({
             "status": "success",
-            "data": todos
+            "data": logicHandle.getTodos()
         }));
         res.end();
     }
     else if (req.url === '/todos' && req.method === 'POST') {
         req.on('end', () => {
-            try {                
+            try {
                 const title = JSON.parse(body).title;
 
                 if (!title) {
@@ -41,11 +40,7 @@ const requestListener = (req, res) => {
                     return; // 後面就不需要寫 else 了, 因為已經結束了, 可以減少巢狀
                 }
 
-                const newTodo = {
-                    id: uuidv4(),
-                    title: title,
-                };
-                todos.push(newTodo);
+                const newTodo = logicHandle.createTodo(title);
 
                 res.writeHead(200, headers);
                 res.write(JSON.stringify({
@@ -59,25 +54,22 @@ const requestListener = (req, res) => {
         });
     }
     else if (req.url === '/todos' && req.method === 'DELETE') {
-        todos.length = 0;
         res.writeHead(200, headers);
         res.write(JSON.stringify({
             "status": "success",
-            "data": todos
+            "data": logicHandle.deleteAllTodos()
         }));
         res.end();
     }
     else if (req.url.startsWith('/todos/') && req.method === 'DELETE') {
         const id = req.url.split('/').pop();
-        const index = todos.findIndex(todo => todo.id === id);
+        const result = logicHandle.deleteTodoById(id);
 
-        if (index !== -1) {
-            todos.splice(index, 1);
-
+        if (result !== null) {
             res.writeHead(200, headers);
             res.write(JSON.stringify({
                 "status": "success",
-                "data": todos
+                "data": result
             }));
             res.end();
         } else {
@@ -86,33 +78,32 @@ const requestListener = (req, res) => {
     }
     else if (req.url.startsWith('/todos/') && req.method === 'PATCH') {
         const id = req.url.split('/').pop();
-        const index = todos.findIndex(todo => todo.id === id);
 
-        if (index !== -1) {
-            req.on('end', () => {
-                try {
-                    const title = JSON.parse(body).title;
+        req.on('end', () => {
+            try {
+                const title = JSON.parse(body).title;
 
-                    if (!title) {
-                        errorHandle(res);
-                        return;
-                    }
+                if (!title) {
+                    errorHandle(res);
+                    return;
+                }
 
-                    todos[index].title = title;
+                const result = logicHandle.updateTodo(id, title);
 
+                if (result !== null) {
                     res.writeHead(200, headers);
                     res.write(JSON.stringify({
                         "status": "success",
-                        "data": todos[index]
+                        "data": result
                     }));
                     res.end();
-                } catch (error) {
+                } else {
                     errorHandle(res);
                 }
-            });
-        } else {
-            errorHandle(res);
-        }
+            } catch (error) {
+                errorHandle(res);
+            }
+        });
     }
     else if (req.method === 'OPTIONS') {
         // 跨網域使用的預檢請求, 因為前端會先發送 OPTIONS 請求來確認是否允許跨域, 所以這裡直接回應 200 就好
@@ -122,9 +113,9 @@ const requestListener = (req, res) => {
     else {
         res.writeHead(404, headers);
         res.write(JSON.stringify({
-        "status": "failed",
-        "message": "Not Found"
-        }));        
+            "status": "failed",
+            "message": "Not Found"
+        }));
         res.end();
     }
 };
